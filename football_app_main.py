@@ -170,6 +170,142 @@ def auto_grade_picks() -> int:
     return graded
 
 # ============================================================
+# LIVE DATA FETCH - API        text-align: center;
+        padding: 14px;
+        background: rgba(0,255,0,0.07);
+        border-radius: 10px;
+        border: 1px solid rgba(0,255,0,0.2);
+    }
+    h1, h2, h3 { color: #00ff00; }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# API-FOOTBALL (RAPIDAPI) - YOUR KEY
+# ============================================================
+RAPIDAPI_KEY = "4d34b5f590msh5ce9ece8c1f6910p155a7ajsnfbaa5a5fb605"
+RAPIDAPI_HOST = "api-football-v1.p.rapidapi.com"
+
+LEAGUES = {
+    39: "Premier League",
+    140: "La Liga",
+    135: "Serie A",
+    78: "Bundesliga",
+    61: "Ligue 1",
+    88: "Eredivisie",
+    94: "Primeira Liga",
+    2: "Champions League",
+    3: "Europa League",
+    253: "MLS",
+    239: "Liga MX",
+    71: "Brasileirao",
+    128: "Argentine Primera",
+    203: "Super Lig",
+    179: "Scottish Premiership",
+}
+
+# ============================================================
+# DATABASE
+# ============================================================
+DB_PATH = "/tmp/adonis_football.db"
+
+def get_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS picks (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id     TEXT    UNIQUE,
+            match_label  TEXT,
+            league       TEXT,
+            league_key   TEXT,
+            home_team    TEXT,
+            away_team    TEXT,
+            pred_goals   REAL,
+            confidence   REAL,
+            kickoff      TEXT,
+            logged_at    TEXT,
+            result       TEXT    DEFAULT 'PENDING',
+            actual_goals INTEGER DEFAULT NULL
+        )
+    """)
+    conn.commit()
+    return conn
+
+def log_pick(match: Dict) -> bool:
+    conn = get_db()
+    if conn.execute("SELECT id FROM picks WHERE match_id=?", (str(match['id']),)).fetchone():
+        return False
+    conn.execute("""
+        INSERT INTO picks
+            (match_id, match_label, league, league_key, home_team, away_team,
+             pred_goals, confidence, kickoff, logged_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+    """, (
+        str(match['id']),
+        f"{match['home_team']} vs {match['away_team']}",
+        match['league'],
+        match.get('league_id', ''),
+        match['home_team'],
+        match['away_team'],
+        round(match['predicted_goals'], 2),
+        round(match['over_confidence'], 1),
+        match['date'],
+        datetime.now(timezone.utc).isoformat(),
+    ))
+    conn.commit()
+    return True
+
+def delete_pick(pick_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM picks WHERE id=?", (pick_id,))
+    conn.commit()
+
+def get_all_picks() -> List[Dict]:
+    conn = get_db()
+    return [dict(r) for r in
+            conn.execute("SELECT * FROM picks ORDER BY logged_at DESC").fetchall()]
+
+def auto_grade_picks() -> int:
+    """Auto-grade using real API-Football results"""
+    conn = get_db()
+    pending = conn.execute("SELECT id, match_id FROM picks WHERE result='PENDING'").fetchall()
+    if not pending:
+        return 0
+
+    graded = 0
+    headers = {"X-RapidAPI-Key": RAPIDAPI_KEY, "X-RapidAPI-Host": RAPIDAPI_HOST}
+    for row in pending:
+        try:
+            url = f"https://api-football-v1.p.rapidapi.com/v3/fixtures?id={row['match_id']}"
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code != 200:
+                continue
+            resp = r.json().get("response", [])
+            if not resp:
+                continue
+            event = resp[0]
+            status_short = event["fixture"]["status"].get("short")
+            if status_short not in ("FT", "AET", "PEN", "FT_PEN"):
+                continue
+            goals = event.get("goals", {})
+            home_score = goals.get("home")
+            away_score = goals.get("away")
+            if home_score is None or away_score is None:
+                continue
+            total = int(home_score) + int(away_score)
+            result = 'WON' if total > 2 else 'LOST'
+            conn.execute(
+                "UPDATE picks SET result=?, actual_goals=? WHERE id=?",
+                (result, total, row['id'])
+            )
+            graded += 1
+        except Exception:
+            continue
+    conn.commit()
+    return graded
+
+# ============================================================
 # LIVE DATA FETCH - API-FOOTBALL
 # ============================================================
 @st.cache_data(ttl=300)
