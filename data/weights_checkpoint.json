@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "version": "4.0",
+    "description": "ZEUS adaptive weights checkpoint — committed to repo for persistence",
+    "last_updated": "boot",
+    "total_graded": 0,
+    "brier_score": null
+  },
+  "OVER_05": {
+    "poisson_p":  0.50,
+    "hist_rate":  0.20,
+    "xg_norm":    0.05,
+    "form":       0.10,
+    "btts":       0.05,
+    "streak":     0.05,
+    "h2h":        0.05
+  },
+  "OVER_15": {
+    "poisson_p":  0.42,
+    "hist_rate":  0.26,
+    "xg_norm":    0.14,
+    "form":       0.08,
+    "btts":       0.05,
+    "streak":     0.00,
+    "h2h":        0.05
+  },
+  "OVER_25": {
+    "poisson_p":  0.35,
+    "hist_rate":  0.25,
+    "xg_norm":    0.20,
+    "btts":       0.10,
+    "form":       0.05,
+    "streak":     0.00,
+    "h2h":        0.05
+  },
+  "BTTS_YES": {
+    "poisson_btts": 0.40,
+    "hist_btts":    0.35,
+    "xg_balance":   0.10,
+    "form":         0.10,
+    "h2h":          0.05
+  },
+  "HOME_WIN": {
+    "poisson_hw": 0.45,
+    "hist_hw":    0.25,
+    "form_diff":  0.15,
+    "xg_diff":    0.10,
+    "h2h":        0.05
+  },
+  "AWAY_WIN": {
+    "poisson_aw": 0.45,
+    "hist_aw":    0.25,
+    "form_diff":  0.15,
+    "xg_diff":    0.10,
+    "h2h":        0.05
+  }
+}
